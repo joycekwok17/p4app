@@ -1,0 +1,29 @@
+{
+    "program": "jnjn.p4",
+    "language": "p4-16",
+    "targets": {
+	"multiswitch": {
+	    "auto-control-plane": false,
+	    "links": [["h1", "s1"], ["h2", "s1"]],
+	    "hosts": {
+		"h1": {
+		    "ip": "10.0.1.10",
+		    "mac": "00:00:00:00:00:01"
+		},
+		"h2": {
+		    "ip": "10.0.2.10",
+		    "mac": "00:00:00:00:00:02"
+		}
+	    },
+		"switches": {
+			"s1": {
+			"commands": "commands.txt"
+		}
+	    },
+	    "parameters": {
+		"port": 8000,
+		"echo_msg": "foobar"
+	    }
+	}
+    }
+}

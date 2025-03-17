@@ -51,10 +51,10 @@ class AppController:
     def sendCommands(self, commands, thrift_port=9090, sw=None):
         if sw: thrift_port = sw.thrift_port
 
-        print '\n'.join(commands)
+        print('\n'.join(commands))
         p = subprocess.Popen([self.cli_path, '--thrift-port', str(thrift_port)], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         stdout, nostderr = p.communicate(input='\n'.join(commands))
-        print stdout
+        print(stdout)
         raw_results = stdout.split('RuntimeCmd:')[1:len(commands)+1]
         parsed_results = map(self.parseCliOutput, raw_results)
         return parsed_results
