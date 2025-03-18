@@ -12,6 +12,7 @@
 #include "hashing_keys.p4"
 
 typedef bit<9> Port_t;
+
 /*
  * This is a custom header for the selection. We'll use
  * etherType 0x1234 for it (see parser)
@@ -64,81 +65,80 @@ control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
 control Join(
     inout qtrp_h qtrp,
     inout bit<3> drop_ctl)
-    (bit<32> table_size)
+    (bit<32> TABLE_SIZE)
 
 {
     join_hash() join_key;
     action drop() {
         drop_ctl = 1;
     }
-    table tb_drop {
-    
-        actions = {
-            drop;
-        }
-        default_action = drop();
-        size = 1;
-    }
 
     /************************ hash tables ************/
     /* bit<32> data and bit<16> register index */
-    #define CREATE_HASH_TABLE(N)                                          \
-        register<bit<32>>(table_size) hash_table_##N;                     \
-                                                                        \
-        action build_##N(bit<32> index, bit<32> store_value) {                  \
-            bit<32> register_value;                                        \
-            hash_table_##N.read(current_value, index);                    \
-            if (current_value == 0) {                                     \
-                hash_table_##N.write(index, store_value);                       \
-            }                                                             \
-        }                                                                 \
-                                                                        \
-        action probe_##N(bit<32> index, out bit<32> result) {             \
-            hash_table_##N.read(result, index);                           \
+    register<bit<32>>(TABLE_SIZE) hash_table_1
+    register<bit<32>>(TABLE_SIZE) hash_table_2;
+    register<bit<32>>(TABLE_SIZE) hash_table_3;
+    register<bit<32>>(TABLE_SIZE) hash_table_4;
+
+    action build(register<bit<32>>(TABLE_SIZE) hash_table, bit<32> idx, out bit<1> success) {
+        bit<32> stored_val;
+        hash_table.read(stored_val, idx);
+        if (stored_val == 0) {
+            hash_table.write(idx, qtrp.fld01_uint32);
+            success = 1;
+        } else {
+            success = 0;
         }
+    }
 
+     /* Helper function to search for a match */
+    action probe(register<bit<32>>(TABLE_SIZE) table, bit<32> idx, out bit<32> result, out bit<1> match) {
+        table.read(result, idx);
+        if (result == qtrp.fld01_uint32) {
+            match = 1;
+        } else {
+            match = 0;
+        }
+    }
 
-
-    CREATE_HASH_TABLE(1)
-    CREATE_HASH_TABLE(2)
-    CREATE_HASH_TABLE(3)
-    CREATE_HASH_TABLE(4)
+    table tb_drop {
+        actions = { nop; }
+        default_action = nop();
+        size = 1;
+    }
 
     apply {
-        if(qtrp.isValid() && (drop_ctl != 1)) {
-            @atomic {
-                join_key.apply(qtrp, qtrp.fld04_uint16);                                                             
+        if (qtrp.isValid() && drop_ctl != 1) {
+            join_key.apply(qtrp, qtrp.fld04_uint16);  // get the hash of field 1, store the hash key in fld04_uint16
+            bit<32> lookup_result = 0;
+            bit<32> idx = qtrp.fld04_uint16;
+            bit<1> success = 0;
+            bit<1> match_found = 0;
 
-                #define CREATE_JOIN_LOGIC(N)                                      \
-                    if(qtrp.fld07_uint16 == 1){                                       \
-                        if(qtrp.fld05_uint32 == 0){                                   \
-                            qtrp.fld05_uint32 = build_##N.execute(qtrp.fld04_uint16, qtrp.fld01_uint32); \
-                        }                                                             \
-                    }else{                                                            \
-                        if(qtrp.fld05_uint32 != qtrp.fld01_uint32){                   \
-                            qtrp.fld05_uint32 = probe_##N.execute(qtrp.fld04_uint16); \
-                        }                                                             \
-                    }  
-
-                CREATE_JOIN_LOGIC(1)
-                CREATE_JOIN_LOGIC(2)
-                CREATE_JOIN_LOGIC(3)
-                CREATE_JOIN_LOGIC(4)
-
-              /* key not found in probe */
-                if(qtrp.fld05_uint32 != qtrp.fld01_uint32){
-                    tb_drop.apply();
-                }else if(qtrp.fld07_uint16 == 1){
+            /* Build phase: Insert only once */
+            if (qtrp.fld07_uint16 == 1) {
+                if (qtrp.fld05_uint32 == 0) { 
+                    build(hash_table_1, idx, success);
+                    if (success == 0) build(hash_table_2, idx, success);
+                    if (success == 0) build(hash_table_3, idx, success);
+                    if (success == 0) build(hash_table_4, idx, success);
+                }
+            } else {  // it is a probe packet
+                /* Probe phase: Search until we find a match */
+                probe(hash_table_1, idx, lookup_result, match_found);
+                if (match_found == 0) probe(hash_table_2, idx, lookup_result, match_found);
+                if (match_found == 0) probe(hash_table_3, idx, lookup_result, match_found);
+                if (match_found == 0) probe(hash_table_4, idx, lookup_result, match_found);
+                
+                qtrp.fld05_uint32 = lookup_result;
+                if (match_found == 0) {
+                    drop_ctl = 1;
                     tb_drop.apply();
                 }
-                qtrp.fld07_uint16 = qtrp.fld07_uint16 - 1;
-
-
-            } // @atomic hint
-        } // Packet validation 
-    } // Apply
-
-
+            }
+            qtrp.fld07_uint16 = qtrp.fld07_uint16 - 1;
+        }
+    }
 }
 
 
