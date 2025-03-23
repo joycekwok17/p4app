@@ -40,7 +40,7 @@ parser MyParser(packet_in packet,
 
     state parse_ethernet {
         packet.extract(hdr.ethernet);
-        transition select(hdr.ethernet.etherType) {
+        transition select(hdr.ethernet.ether_type) {
             P4SELECT_ETYPE: parse_qtrp;
             default: accept;
         }
@@ -65,7 +65,7 @@ control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
 control Join(
     inout qtrp_h qtrp,
     inout bit<3> drop_ctl)
-    (bit<32> TABLE_SIZE)
+    (bit<32> table_size)
 
 {
     join_hash() join_key;
@@ -75,12 +75,11 @@ control Join(
 
     /************************ hash tables ************/
     /* bit<32> data and bit<16> register index */
-    register<bit<32>>(TABLE_SIZE) hash_table_1
-    register<bit<32>>(TABLE_SIZE) hash_table_2;
-    register<bit<32>>(TABLE_SIZE) hash_table_3;
-    register<bit<32>>(TABLE_SIZE) hash_table_4;
-
-    action build(register<bit<32>>(TABLE_SIZE) hash_table, bit<32> idx, out bit<1> success) {
+    register<bit<32>>(table_size) hash_table_1;
+    register<bit<32>>(table_size) hash_table_2;
+    register<bit<32>>(table_size) hash_table_3;
+    register<bit<32>>(table_size) hash_table_4;
+    action build(register<bit<32>> hash_table, bit<32> idx, out bit<1> success) {
         bit<32> stored_val;
         hash_table.read(stored_val, idx);
         if (stored_val == 0) {
@@ -92,8 +91,8 @@ control Join(
     }
 
      /* Helper function to search for a match */
-    action probe(register<bit<32>>(TABLE_SIZE) table, bit<32> idx, out bit<32> result, out bit<1> match) {
-        table.read(result, idx);
+    action probe(register<bit<32>> hash_table, bit<32> idx, out bit<32> result, out bit<1> match) {
+        hash_table.read(result, idx);
         if (result == qtrp.fld01_uint32) {
             match = 1;
         } else {
@@ -102,7 +101,9 @@ control Join(
     }
 
     table tb_drop {
-        actions = { nop; }
+        actions = { 
+            nop; 
+        }
         default_action = nop();
         size = 1;
     }
@@ -136,7 +137,7 @@ control Join(
                     tb_drop.apply();
                 }
             }
-            qtrp.fld07_uint16 = qtrp.fld07_uint16 - 1;
+            qtrp.fld07_uint16 = qtrp.fld07_uint16 - 1; // decrement the hop count by 1 
         }
     }
 }

@@ -18,11 +18,10 @@
 // }
 
 
-control join_hash(  
-    in qtrp_h qtrp,
-    out bit<HASH_SIZE> sel_hash)
-{
+control join_hash(in qtrp_h qtrp, out bit<HASH_SIZE> sel_hash){
+    bit<32> nbase=0;
+    bit<64> ncount=4294967296*2;
     apply {
-        sel_hash = hash(HASH_ALG, {qtrp.fld01_uint32});
+        hash(sel_hash, HASH_ALG, nbase, {qtrp.fld01_uint32}, ncount);
     }
 }

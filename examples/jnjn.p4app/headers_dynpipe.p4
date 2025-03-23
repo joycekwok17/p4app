@@ -43,7 +43,7 @@ header qtrp_h {
     bit<32>     fld01_uint32; 
     bit<32>     fld02_uint32;
     bit<32>     fld03_uint32;
-    bit<16>     fld04_uint16;   // Hash key for max 65k table size in tofino-2
+    bit<32>     fld04_uint16;   // Hash key for max 65k table size in tofino-2
     bit<32>     fld05_uint32;
     bit<32>     fld06_uint32;   // former fld06_date field, now used for group key (moved to field 10)
     bit<16>     fld07_uint16;   /* Field 7 build/probe flag */
