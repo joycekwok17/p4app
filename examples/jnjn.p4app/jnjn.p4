@@ -74,12 +74,21 @@ control Join(
     }
 
     /************************ hash tables ************/
-    /* bit<32> data and bit<16> register index */
-    register<bit<32>>(table_size) hash_table_1;
-    register<bit<32>>(table_size) hash_table_2;
-    register<bit<32>>(table_size) hash_table_3;
-    register<bit<32>>(table_size) hash_table_4;
-    action build(register<bit<32>> hash_table, bit<32> idx, out bit<1> success) {
+    /* Define a struct to wrap the register */
+    struct Register32 {
+        register<bit<32>>(table_size) hash_table;
+    };
+
+    Register32 hash_table_1;
+    Register32 hash_table_2;
+    Register32 hash_table_3;
+    Register32 hash_table_4;
+    // /* bit<32> data and bit<16> register index */
+    // register<bit<32>>(table_size) hash_table_1;
+    // register<bit<32>>(table_size) hash_table_2;
+    // register<bit<32>>(table_size) hash_table_3;
+    // register<bit<32>>(table_size) hash_table_4;
+    action build(Register32 hash_table, bit<32> idx, inout bit<1> success) {
         bit<32> stored_val;
         hash_table.read(stored_val, idx);
         if (stored_val == 0) {
@@ -91,7 +100,7 @@ control Join(
     }
 
      /* Helper function to search for a match */
-    action probe(register<bit<32>> hash_table, bit<32> idx, out bit<32> result, out bit<1> match) {
+    action probe(Register32 hash_table, bit<32> idx, out bit<32> result, inout bit<1> match) {
         hash_table.read(result, idx);
         if (result == qtrp.fld01_uint32) {
             match = 1;
